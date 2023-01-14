@@ -1,65 +1,116 @@
 param (
-    [string]$bicepProjects = "$env:USERPROFILE\BicepProjects",
-    [string]$vscodeVersion = "1.57.1",
-    [string]$azureCLIVersion = "2.15.1"
+    [string]$bicepProjects = "$env:USERPROFILE\BicepProjects"
 )
 
-$report = @()
-
-# Check Visual Studio Code version
-$installedVSCodeVersion = (code --version).Split(".")[0]
-if($installedVSCodeVersion -lt $vscodeVersion) {
-    Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?LinkID=760868" -OutFile "$env:TEMP\vscode-setup.exe"
-    Start-Process "$env:TEMP\vscode-setup.exe" -ArgumentList '/quiet' -Wait
-    $report += "Visual Studio Code has been installed"
-} else {
-    $report += "Visual Studio Code is already installed"
+$requiredApps = @{
+    "Visual Studio Code" = @{
+        "Windows" = @{
+            "installer" = "https://go.microsoft.com/fwlink/?LinkID=760868";
+            "installerCommand" = "Start-Process"
+        };
+        "Linux" = @{
+            "installer" = "code";
+            "installerCommand" = "apt-get"
+        }
+    };
+    "Azure CLI" = @{
+        "Windows" = @{
+            "installer" = "https://aka.ms/installazurecliwindows";
+            "installerCommand" = "Start-Process"
+        };
+        "Linux" = @{
+            "installer" = "az";
+            "installerCommand" = "apt-get"
+        }
+    };
+    "Bicep extension for Visual Studio Code" = @{
+        "Windows" = @{
+            "installer" = "ms-azuretools.vscode-azurebicep";
+            "installerCommand" = "code --install-extension"
+        };
+        "Linux" = @{
+            "installer" = "ms-azuretools.vscode-azurebicep";
+            "installerCommand" = "code --install-extension"
+        }
+    };
+    "Azure Bicep CLI" = @{
+        "Windows" = @{
+            "installer" = "bicep";
+            "installerCommand" = "az extension add"
+        };
+        "Linux" = @{
+            "installer" = "bicep";
+            "installerCommand" = "az extension add"
+        }
+    };
+    "Azure ARM Tools extension for Visual Studio Code" = @{
+        "Windows" = @{
+            "installer" = "msazurermtools.azurerm-vscode-tools";
+            "installerCommand" = "code --install-extension"
+        };
+        "Linux" = @{
+            "installer" = "msazurermtools.azurerm-vscode-tools";
+            "installerCommand" = "code --install-extension"
+        }
+    }
 }
 
-# Check Azure CLI version
-$installedAzureCLIVersion = (az --version).Split(" ")[-2]
-if($installedAzureCLIVersion -lt $azureCLIVersion) {
-    Invoke-WebRequest -Uri "https://aka.ms/installazurecliwindows" -OutFile "$env:TEMP\AzCLI.msi"
-    Start-Process msiexec.exe -ArgumentList '/i', "$env:TEMP\AzCLI.msi", '/quiet' -Wait
-    $report += "Azure CLI has been installed"
+foreach ($app in $requiredApps.GetEnumerator()) {
+    if (!(Get-Command $app.Key -ErrorAction SilentlyContinue)) {
+        if ($PSVersionTable.OS -eq "Windows") {
+            $installer = $app.Value."Windows".installer
+            $installerCommand = $app.Value."Windows".installerCommand
+        } elseif ($PSVersionTable.OS -eq "Linux") {
+            $installer = $app.Value."Linux".
+            installer
+            $installerCommand = $app.Value."Linux".installerCommand
+        } else {
+            Write-Host "Unsupported operating system."
+            break
+        }
+        
+        if ($installerCommand -eq "Start-Process") {
+            Invoke-WebRequest -Uri $installer -OutFile "$env:TEMP\$($app.Key -replace ' ','_').exe"
+            & $installerCommand "$env:TEMP\$($app.Key -replace ' ','_').exe" -ArgumentList '/quiet' -Wait
+        } else {
+            & $installerCommand $installer
+        }
+        } else {
+        Write-Host "$app.Key is already installed."
+        }
+        }
+        
+        # Create a new folder for your Bicep projects if it doesn't already exist
+        if (!(Test-Path $bicepProjects)) {
+        New-Item -ItemType Directory -Path $bicepProjects
+        }else {
+        Write-Host "Bicep project folder already exists: $bicepProjects"
+        }
+
+        # Create subfolders for modules, variables, outputs, and parameters if they don't already exist
+        $subfolders = @("modules", "variables", "outputs", "parameters")
+        foreach ($folder in $subfolders) {
+        if (!(Test-Path "$bicepProjects\$folder")) {
+        New-Item -ItemType Directory -Path "$bicepProjects\$folder"
+        } else {
+        Write-Host "$folder subfolder already exists: $bicepProjects\$folder"
+    }
+}
+if (!(Test-Path "$bicepProjects\main.bicep")) {
+    New-Item -ItemType File -Path "$bicepProjects\main.bicep"
 } else {
-    $report += "Azure CLI is already installed"
+    Write-Host "main.bicep already exists: $bicepProjects\main.bicep"
 }
 
-# Check for Bicep extension for Visual Studio Code
-if (!(code --list-extensions | Select-String "ms-azuretools.vscode-azurebicep")) {
-    code --install-extension ms-azuretools.vscode-azurebicep
-    $report += "Bicep extension for Visual Studio Code has been installed"
+if (!(Test-Path "$bicepProjects\README.md")) {
+    New-Item -ItemType File -Path "$bicepProjects\README.md"
 } else {
-    $report += "Bicep extension for Visual Studio Code is already installed"
+    Write-Host "README.md already exists: $bicepProjects\README.md"
 }
 
-# Check for Azure Bicep CLI
-if (!(az extension list | Select-String "bicep")) {
-    az extension add --name bicep
-    $report += "Azure Bicep CLI has been installed"
-} else {
-    $report += "Azure Bicep CLI is already installed"
-}
+        # Open Visual Studio Code in the Bicep projects folder
+        code $bicepProjects
+        
+# Show message on successful completion
+Write-Host "Time to flex your Bicep!"
 
-# Install Azure ARM Tools extension for Visual Studio Code
-if (!(code --list-extensions | Select-String "msazurermtools.azurerm-vscode-tools")) {
-    code --install-extension msazurermtools.azurerm-vscode-tools
-    $report += "Azure ARM Tools extension for Visual Studio Code has been installed"
-} else {
-    $report += "Azure ARM Tools extension for Visual Studio Code is already installed"
-}
-
-# Create a new folder for your Bicep projects
-New-Item -ItemType Directory -Path "$bicepProjects\modules"
-New-Item -ItemType Directory -Path "$bicepProjects\variables"
-New-Item -ItemType Directory -Path "$bicepProjects\outputs"
-New-Item -ItemType Directory -Path "$bicepProjects\parameters"
-New-Item -ItemType File -Path "$bicepProjects\main.bicep" -Force
-New-Item -ItemType File -Path "$bicepProjects\README.md" -Force
-
-# Open Visual Studio Code in the Bicep projects folder
-code $bicepProjects
-
-# Start Visual Studio Code
-Start-Process "code"
