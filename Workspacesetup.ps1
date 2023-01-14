@@ -22,5 +22,13 @@ code --install-extension msazurermtools.azurerm-vscode-tools
 # Create a new folder for your Bicep projects
 New-Item -ItemType Directory -Path $bicepProjects -Force
 
+# Create the basic file structure
+New-Item -ItemType Directory -Path "$bicepProjects\modules"
+New-Item -ItemType Directory -Path "$bicepProjects\variables"
+New-Item -ItemType Directory -Path "$bicepProjects\outputs"
+New-Item -ItemType Directory -Path "$bicepProjects\parameters"
+New-Item -ItemType File -Path "$bicepProjects\main.bicep" -Force
+New-Item -ItemType File -Path "$bicepProjects\README.md" -Force
+
 # Open Visual Studio Code in the Bicep projects folder
 code $bicepProjects
